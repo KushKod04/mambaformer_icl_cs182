@@ -113,6 +113,7 @@ def eval_batch(conf, model, task_sampler, xs, xs_p=None, inds=None):
 
 # Functions for generating different kinds of train/test data
 def gen_standard(data_sampler, n_points, b_size):
+    # default sampling goes into this function
     xs = data_sampler.sample_xs(n_points, b_size)
 
     return xs, None
@@ -195,12 +196,17 @@ def aggregate_metrics(metrics, bootstrap_trials=1000):
     Takes as input a tensor of shape (num_eval, n_points) and returns a dict with
     per-point mean, stddev, and bootstrap limits
     """
+    # shape of metrics = (num_eval_samples, 2*n_points+1)
+
     results = {}
     results["mean"] = metrics.mean(dim=0)
     results["std"] = metrics.std(dim=0, unbiased=True)
     n = len(metrics)
     bootstrap_indices = torch.randint(n, size=(bootstrap_trials, n))
+    # shape of bootstrap_indices = (bootstrap_trials, n_points)
+
     if len(metrics[bootstrap_indices].shape) > 2:
+        # shape of metrics[bootstrap_indices] = (bootstrap_trials, num_eval_examples, 2*n_points+1)
         bootstrap_means = metrics[bootstrap_indices].mean(dim=1).sort(dim=0)[0]
         results["bootstrap_low"] = bootstrap_means[int(0.05 * bootstrap_trials), :]
         results["bootstrap_high"] = bootstrap_means[int(0.95 * bootstrap_trials), :]
@@ -229,6 +235,7 @@ def eval_model(
        - num_eval_examples: total number of examples to evaluate on
        - **sampler_kwargs: remaining arguments to pass directly to the sampler
     """
+    # print(f'task_name = {task_name}, data_name = {data_name}, n_dims = {n_dims}, n_points = {n_points}, prompting_strategy = {prompting_strategy}, num_eval_examples = {num_eval_examples}')  # kushal added for debugging
 
     if num_eval_examples % batch_size != 0:
         num_eval_examples = (num_eval_examples // batch_size + 1) * batch_size
@@ -237,6 +244,9 @@ def eval_model(
     if "token" in task_name:
         data_sampler = get_data_sampler(data_name, n_dims=n_dims, vocab_size=model.vocab_size, **data_sampler_kwargs)
     else:
+        # goes here for `long_term_dependency` and `sinusoidal_regression`
+        if data_sampler_kwargs is None:  # added for sinusoidal_regression with GPT
+            data_sampler_kwargs = {}
         data_sampler = get_data_sampler(data_name, n_dims=n_dims, **data_sampler_kwargs)
     task_sampler = get_task_sampler(
         task_name, n_dims, batch_size, **task_sampler_kwargs
@@ -247,6 +257,7 @@ def eval_model(
     if prompting_strategy == "fixed_dummy" or prompting_strategy == "wo_dummy":
         generating_func = globals()["gen_standard"]    
     else:
+        # goes in here for `standard`
         generating_func = globals()[f"gen_{prompting_strategy}"]
 
     if prompting_strategy == "by_position":
@@ -304,7 +315,9 @@ def eval_model(
         metrics = torch.cat(all_metrics, dim=0)
     else:
         for i in range(num_eval_examples // batch_size):
+            # for long_term_dependency: data_sampler = <samplers.GaussianRetrievalSampler>
             xs, xs_p = generating_func(data_sampler, n_points, batch_size)
+            # shape of xs = (batch_size, 2*n_points+1, n_dims)
             if prompting_strategy == "wo_dummy":
                 data_sampler.inds = None
             metrics_batch = eval_batch(conf, model, task_sampler, xs, xs_p, inds=data_sampler.inds)
