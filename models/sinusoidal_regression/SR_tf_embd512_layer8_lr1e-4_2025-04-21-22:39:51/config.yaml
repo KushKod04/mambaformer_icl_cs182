@@ -1,0 +1,48 @@
+config: conf/sinusoidal_regression.yaml
+inherit:
+- /home/ubuntu/cs182/mambaformer-icl/src/conf/wandb.yaml
+model:
+  family: gpt2
+  interleave: true
+  mixed_attn: null
+  n_dims: 1
+  n_embd: 512
+  n_head: 8
+  n_layer: 8
+  n_positions: 101
+  vocab_size: -1
+out_dir: ../models/sinusoidal_regression/SR_tf_embd512_layer8_lr1e-4_2025-04-21-22:39:51
+test_run: false
+training:
+  batch_size: 64
+  curriculum:
+    dims:
+      end: 1
+      inc: 0
+      interval: 2000
+      start: 1
+    points:
+      end: 41
+      inc: 2
+      interval: 2000
+      start: 11
+  data: gaussian
+  data_sampler_kwargs: null
+  device_batch_size: null
+  do_parallel: null
+  gradient_clip: 10.0
+  keep_every_steps: 100000
+  learning_rate: 0.0001
+  num_tasks: null
+  num_training_examples: null
+  resume_id: null
+  save_every_steps: 5000
+  task: sinusoidal_regression
+  task_kwargs: {}
+  train_steps: 100001
+wandb:
+  entity: your-entity
+  log_every_steps: 1000
+  name: SR_tf_embd512_layer8_lr1e-4
+  notes: ''
+  project: in-context-training
