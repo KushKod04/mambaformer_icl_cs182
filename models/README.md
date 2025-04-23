@@ -2,6 +2,8 @@
 
 This directory contains trained models comparing the **Transformer** and **Mamba** architectures on two key in-context learning tasks: **Sinusoidal Regression** and **Long-Term Dependency**.
 
+The reason why we uploaded the models to HuggingFace is because we had some difficulties with uploading our `model_100000.pt` files due to Git LFS and forked repo problems.
+
 ## Model Links
 
 | Task ↓ / Model → | Transformer | Mamba |
