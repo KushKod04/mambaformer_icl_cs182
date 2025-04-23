@@ -50,6 +50,8 @@ TASK_LIST = [
     "retrieval",
     "sparse_parity",
     "token_induction_head",
+    "sinusoidal_regression",
+    "long_term_dependency",
 ]
 
 training_schema = {
