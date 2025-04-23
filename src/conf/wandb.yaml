@@ -1,5 +1,5 @@
 wandb:
-    project: in-context-training
-    entity: your-entity
+    project: cs182_project
+    entity: kkodnad-bair-malik-lab
     notes:
     log_every_steps: 1000
