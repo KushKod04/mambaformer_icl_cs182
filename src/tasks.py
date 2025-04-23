@@ -66,6 +66,8 @@ def get_task_sampler(
         "filter_relu_2nn_regression": FilterRelu2nnRegression,
         "filter_scale_linear_regression": FilterScaleLinearRegression,
         "filter_ortho_linear_regression": FilterOrthoLinearRegression,
+        "sinusoidal_regression": SinusoidalRegression,
+        "long_term_dependency": LongTermDependency,
     }
     if task_name in task_names_to_classes:
         task_cls = task_names_to_classes[task_name]
@@ -195,6 +197,47 @@ class LinearRegression(Task):
     @staticmethod
     def get_training_metric():
         return mean_squared_error
+
+class SinusoidalRegression(Task):
+    def __init__(self, n_dims=1, batch_size=32, pool_dict=None, seeds=None, freq_range=(0.5, 1.4), phase_range=(0, 2 * math.pi)):
+        super(SinusoidalRegression, self).__init__(n_dims, batch_size, pool_dict, seeds)
+        self.freq_range = freq_range
+        self.phase_range = phase_range
+
+        if pool_dict is None and seeds is None:
+            self.freqs = torch.empty(batch_size).uniform_(*freq_range)
+            self.phases = torch.empty(batch_size).uniform_(*phase_range)
+        elif seeds is not None:
+            self.freqs = torch.zeros(batch_size)
+            self.phases = torch.zeros(batch_size)
+            for i, seed in enumerate(seeds):
+                g = torch.Generator().manual_seed(seed)
+                self.freqs[i] = torch.empty(1, generator=g).uniform_(*freq_range)
+                self.phases[i] = torch.empty(1, generator=g).uniform_(*phase_range)
+        else:
+            self.freqs = pool_dict["freqs"]
+            self.phases = pool_dict["phases"]
+
+    def evaluate(self, xs_b):
+        # xs_b: [B, S, D]
+        freqs = self.freqs[:, None, None].to(xs_b.device)   # [B, 1, 1]
+        phases = self.phases[:, None, None].to(xs_b.device) # [B, 1, 1]
+        return torch.sin(freqs * xs_b + phases)  
+
+    @staticmethod
+    def generate_pool_dict(n_dims, num_tasks, freq_range=(0.8, 1.2), phase_range=(0, 2 * math.pi), **kwargs):
+        freqs = torch.empty(num_tasks).uniform_(*freq_range)
+        phases = torch.empty(num_tasks).uniform_(*phase_range)
+        return {"freqs": freqs, "phases": phases}
+
+    @staticmethod
+    def get_metric():
+        return squared_error
+
+    @staticmethod
+    def get_training_metric():
+        return mean_squared_error
+
 
 class FilterLinearRegression(LinearRegression):
     pass
@@ -467,3 +510,52 @@ class SparseParity(Task):
     @staticmethod
     def get_training_metric():
         return cross_entropy
+
+
+class LongTermDependency(Task):
+    def __init__(self, n_dims, batch_size, pool_dict=None, seeds=None):
+        """
+        A task where the output depends on a specific index of the input
+        that is randomly selected during initialization.
+        """
+        super(LongTermDependency, self).__init__(n_dims, batch_size, pool_dict, seeds)
+        
+        if pool_dict is None and seeds is None:
+            # Randomly select an index for each batch item
+            self.selected_indices = torch.randint(0, self.n_dims, (self.b_size,))
+        elif seeds is not None:
+            # Use seeds to deterministically select indices
+            self.selected_indices = torch.zeros(self.b_size, dtype=torch.long)
+            generator = torch.Generator()
+            assert len(seeds) == self.b_size
+            for i, seed in enumerate(seeds):
+                generator.manual_seed(seed)
+                self.selected_indices[i] = torch.randint(0, self.n_dims, (1,), generator=generator)
+        else:
+            # Select indices from the provided pool
+            assert "indices" in pool_dict
+            indices = torch.randperm(len(pool_dict["indices"]))[:batch_size]
+            self.selected_indices = pool_dict["indices"][indices]
+            
+    def evaluate(self, xs_b):
+        # Extract the values at the selected indices for each batch item
+        # xs_b shape: [batch_size, sequence_length, n_dims]
+        batch_indices = torch.arange(xs_b.shape[0])
+        # Extract the value at the selected index for each sample in the batch
+        selected_values = xs_b[batch_indices, :, self.selected_indices]
+        
+        # Return the selected values
+        # This creates a dependency where the output depends solely on the selected index
+        return selected_values
+
+    @staticmethod
+    def generate_pool_dict(n_dims, num_tasks, **kwargs):
+        return {"indices": torch.randint(0, n_dims, (num_tasks,))}
+
+    @staticmethod
+    def get_metric():
+        return squared_error
+
+    @staticmethod
+    def get_training_metric():
+        return mean_squared_error
