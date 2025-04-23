@@ -68,7 +68,8 @@ def train_parallel(rank, world_size, model, args):
     global_rank = rank
     dist.init_process_group(
         backend="nccl",
-        init_method="tcp://127.0.0.1:33447",
+        #init_method="tcp://127.0.0.1:33447",
+        init_method="tcp://127.0.0.1:29500",
         rank=global_rank,
         world_size=world_size,
     )
