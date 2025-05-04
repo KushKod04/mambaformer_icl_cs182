@@ -1,3 +1,4 @@
+import csv
 import os
 import json
 import uuid
@@ -66,6 +67,12 @@ def train(model, args):
         "n_layer": args.model.n_layer,
         "n_head": getattr(args.model, 'n_head', -1),
     }, {})
+
+    log_path = os.path.join(args.out_dir, "training_metrics.csv")
+    if not os.path.exists(log_path):
+        with open(log_path, "w", newline='') as f:
+            csv_writer = csv.writer(f)
+            csv_writer.writerow(["step", "overall_loss/train", "excess_loss/train", "gradient/norm", "gradient/lr"])
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.training.learning_rate)
     curriculum = Curriculum(args.training.curriculum)
@@ -173,12 +180,15 @@ def train(model, args):
             writer.add_scalar("excess_loss/train", loss / baseline_loss, i)
             writer.add_scalar("gradient/norm", grad_norm, i)
             writer.add_scalar("gradient/lr", optimizer.param_groups[0]['lr'], i)
-            wandb.log({
-                "overall_loss/train": loss,
-                "excess_loss/train": loss / baseline_loss,
-                "gradient/norm": grad_norm,
-                "gradient/lr": optimizer.param_groups[0]['lr'],
-            }, step=i)
+            with open(log_path, "a", newline='') as f:
+                csv_writer = csv.writer(f)
+                csv_writer.writerow([i, loss, loss / baseline_loss, grad_norm, optimizer.param_groups[0]['lr']])
+            # wandb.log({
+            #     "overall_loss/train": loss,
+            #     "excess_loss/train": loss / baseline_loss,
+            #     "gradient/norm": grad_norm,
+            #     "gradient/lr": optimizer.param_groups[0]['lr'],
+            # }, step=i)
 
             # Calculate pointswise loss including dummy ones: output=ys=1 for dummies
             point_wise_loss_func = task.get_metric()
@@ -190,7 +200,6 @@ def train(model, args):
                 for k in point_wise_dict:
                     # Not comparable against different filtering probabilities
                     writer.add_scalar(f"pointwise/loss_@{k}_shot", point_wise_dict[k], i)
-                wandb.log({f"pointwise/loss_@{k}_shot": point_wise_dict[k] for k in point_wise_dict}, step=i)
         curriculum.update()
 
         pbar.set_description(f"{args.wandb.name}; loss {loss}")
@@ -223,7 +232,6 @@ def train(model, args):
                 writer.add_scalar("error_rate/eval", eval_metric['mean'], i)
             else:
                 raise ValueError("eval metric threw unexpected datatype")
-            wandb.log({"error_rate/eval": eval_metric['mean'][0] if isinstance(eval_metric['mean'], list) else eval_metric['mean']}, step=i)
         if (
             args.training.keep_every_steps > 0
             and i % args.training.keep_every_steps == 0
@@ -238,7 +246,6 @@ def train(model, args):
                 os.path.join(args.out_dir, f"model_{i}.pt")
             )
         
-        wandb.finish()
         writer.flush()
         writer.close()
 
