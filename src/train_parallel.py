@@ -1,3 +1,4 @@
+import csv
 import os
 import json
 from random import randint
@@ -69,7 +70,7 @@ def train_parallel(rank, world_size, model, args):
     dist.init_process_group(
         backend="nccl",
         #init_method="tcp://127.0.0.1:33447",
-        init_method="tcp://127.0.0.1:29500",
+        init_method="tcp://127.0.0.1:29500",  # manually change this to find an available port
         rank=global_rank,
         world_size=world_size,
     )
@@ -92,6 +93,11 @@ def train_parallel(rank, world_size, model, args):
             "n_head": getattr(args.model, 'n_head', -1),
         }, {})
 
+        log_path = os.path.join(args.out_dir, "training_metrics.csv")
+        if not os.path.exists(log_path):
+            with open(log_path, "w", newline='') as f:
+                csv_writer = csv.writer(f)
+                csv_writer.writerow(["step", "overall_loss/train", "excess_loss/train", "gradient/norm"])
 
     model = FSDP(model).cuda(rank)
 
@@ -253,6 +259,10 @@ def train_parallel(rank, world_size, model, args):
                 writer.add_scalar("overall_loss/train", avg_loss, i)
                 writer.add_scalar("excess_loss/train", avg_excess_loss, i)
                 writer.add_scalar("gradient/norm", avg_grad_norm, i)
+
+                with open(log_path, "a", newline='') as f:
+                    csv_writer = csv.writer(f)
+                    csv_writer.writerow([i, loss, avg_excess_loss, avg_grad_norm])
 
                 if model.interleave and len(point_wise_loss.shape) >= 1:
                     for k in point_wise_dict:
