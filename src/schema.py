@@ -52,6 +52,7 @@ TASK_LIST = [
     "token_induction_head",
     "sinusoidal_regression",
     "long_term_dependency",
+    "modulo_classification",
 ]
 
 training_schema = {

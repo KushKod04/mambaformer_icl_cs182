@@ -559,3 +559,80 @@ class LongTermDependency(Task):
     @staticmethod
     def get_training_metric():
         return mean_squared_error
+
+
+class ModuloClassification(Task):
+    def __init__(self, n_dims, batch_size, pool_dict=None, seeds=None, modulo=3, modulo_choices=[3, 5, 7]):
+        """
+        Classify the sum of vector elements modulo a small integer (e.g. 3).
+        Output is a class label in {0, ..., modulo-1}.
+        """
+        super(ModuloClassification, self).__init__(n_dims, batch_size, pool_dict, seeds)
+        self.modulo = modulo
+        self.modulo_choices = modulo_choices
+
+        if pool_dict is None and seeds is None:
+            # Randomly assign a modulo per n_point from the set
+            self.modulos = torch.tensor([
+                modulo_choices[torch.randint(0, len(modulo_choices), (1,)).item()]
+                for _ in range(self.n_dims)
+            ], device='cuda')
+        elif seeds is not None:
+            # Deterministically assign modulos using seeds
+            self.modulos = torch.zeros(self.n_dims, dtype=torch.long, device='cuda')
+            generator = torch.Generator()
+            for i, seed in enumerate(seeds):
+                generator.manual_seed(seed)
+                self.modulos[i] = self.modulo_choices[torch.randint(0, len(self.modulo_choices), (1,), generator=generator).item()]
+        else:
+            # Use pool_dict
+            assert "modulos" in pool_dict
+            self.modulos = pool_dict["modulos"][:self.n_dims]
+
+    def evaluate(self, xs_b):
+        """
+        Compute the label as sum(xs) % modulo.
+        Inputs:
+            xs_b: Tensor of shape (batch_size, n_points, n_dims)
+        Outputs:
+            ys_b: Tensor of shape (batch_size, n_points) with class labels [0, modulo-1]
+        """
+        _, n_points, n_dims = xs_b.shape
+        # Sum over last dimension (dim=-1) -> length of vector for each sample point
+        summed = xs_b.sum(dim=-1)  # shape: (batch_size, n_points)
+        if n_dims < n_points:
+            modulos = self.modulos.repeat(n_points // n_dims + 1)[:n_points]  # (n_points,)
+        else:
+            modulos = self.modulos[:n_points]  # (n_points,)
+        # labels = (summed.long() % self.modulo)#.view(-1, 1)  # final output: (batch_size, n_points)
+        labels = (summed.long() % modulos)  # final output: (batch_size, n_points)
+        return labels
+
+    def classify(self, xs_b, ys_b, pred):
+        """
+        Classification accuracy metric.
+            pred: logits of shape [batch_size, n_points, modulo]
+            ys_b: true labels of shape [batch_size, n_points]
+        Returns: 0-1 loss tensor of shape [batch_size, n_points]
+        """
+        pred_class = pred.argmax(dim=-1)  # [batch_size, n_points]
+        incorrect = (pred_class != ys_b).float()
+        return incorrect  # 1 where incorrect, 0 where correct
+
+    @staticmethod
+    def generate_pool_dict(n_dims, num_tasks, modulo_choices=[3,5,7], **kwargs):
+        modulos = torch.tensor([
+            modulo_choices[torch.randint(0, len(modulo_choices), (1,)).item()]
+            for _ in range(num_tasks)
+        ], device='cuda')
+
+        return {"modulos": modulos}
+    
+
+    @staticmethod
+    def get_metric():
+        return squared_error
+
+    @staticmethod
+    def get_training_metric():
+        return mean_squared_error
