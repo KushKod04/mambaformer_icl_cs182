@@ -53,6 +53,10 @@ TASK_LIST = [
     "sinusoidal_regression",
     "long_term_dependency",
     "modulo_classification",
+    "euclidean_distance",
+    "l1_distance",
+    "vector_manipulation",
+    "high_frequency",
 ]
 
 training_schema = {
@@ -71,6 +75,7 @@ training_schema = {
         "unique_key_tokens_fixed_query",
         "unique_key_tokens_random_query",
         "integer",
+        "uniform",
     ])),
     "batch_size": merge(tinteger, default(64)),
     "learning_rate": merge(tfloat, default(3e-4)),

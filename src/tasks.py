@@ -12,6 +12,12 @@ def squared_error(ys_pred, ys):
 def mean_squared_error(ys_pred, ys):
     return (ys - ys_pred).square().mean()
 
+def absolute_error(ys_pred, ys):
+    return (ys - ys_pred).abs()
+
+def mean_absolute_error(ys_pred, ys):
+    return (ys - ys_pred).abs().mean()
+
 def squared_norm_error(ys_pred, ys, dim=-1):
     return (ys - ys_pred).square().sum(dim=dim).unsqueeze(dim=dim)
 
@@ -68,6 +74,11 @@ def get_task_sampler(
         "filter_ortho_linear_regression": FilterOrthoLinearRegression,
         "sinusoidal_regression": SinusoidalRegression,
         "long_term_dependency": LongTermDependency,
+        "modulo_classification": ModuloClassification,
+        "euclidean_distance":EuclideanDistance,
+        "l1_distance": L1Distance,
+        "vector_manipulation": VectorManipulation,
+        "high_frequency": HighFrequency,
     }
     if task_name in task_names_to_classes:
         task_cls = task_names_to_classes[task_name]
@@ -199,36 +210,182 @@ class LinearRegression(Task):
         return mean_squared_error
 
 class SinusoidalRegression(Task):
-    def __init__(self, n_dims=1, batch_size=32, pool_dict=None, seeds=None, freq_range=(0.5, 1.4), phase_range=(0, 2 * math.pi)):
+    def __init__(self, n_dims=1, batch_size=32, pool_dict=None, seeds=None, ampl_range=(-2, 2), freq_range=(0.5, 1.4), phase_range=(0, 2 * math.pi)):
         super(SinusoidalRegression, self).__init__(n_dims, batch_size, pool_dict, seeds)
+        self.ampl_range = ampl_range
         self.freq_range = freq_range
         self.phase_range = phase_range
 
         if pool_dict is None and seeds is None:
+            self.ampls = torch.empty(batch_size).uniform_(*ampl_range)
             self.freqs = torch.empty(batch_size).uniform_(*freq_range)
             self.phases = torch.empty(batch_size).uniform_(*phase_range)
         elif seeds is not None:
+            self.ampls = torch.zeros(batch_size)
             self.freqs = torch.zeros(batch_size)
             self.phases = torch.zeros(batch_size)
             for i, seed in enumerate(seeds):
                 g = torch.Generator().manual_seed(seed)
+                self.ampls[i] = torch.empty(1, generator=g).uniform_(*ampl_range)
                 self.freqs[i] = torch.empty(1, generator=g).uniform_(*freq_range)
                 self.phases[i] = torch.empty(1, generator=g).uniform_(*phase_range)
         else:
+            self.ampls = pool_dict["ampls"]
             self.freqs = pool_dict["freqs"]
             self.phases = pool_dict["phases"]
 
     def evaluate(self, xs_b):
         # xs_b: [B, S, D]
+        ampls = self.ampls[:, None, None].to(xs_b.device)   # [B, 1, 1]
         freqs = self.freqs[:, None, None].to(xs_b.device)   # [B, 1, 1]
         phases = self.phases[:, None, None].to(xs_b.device) # [B, 1, 1]
-        return torch.sin(freqs * xs_b + phases)  
+        return ampls * torch.sin(freqs * xs_b + phases)  
 
     @staticmethod
-    def generate_pool_dict(n_dims, num_tasks, freq_range=(0.8, 1.2), phase_range=(0, 2 * math.pi), **kwargs):
+    def generate_pool_dict(n_dims, num_tasks, ampl_range=(-2, 2), freq_range=(0.8, 1.2), phase_range=(0, 2 * math.pi), **kwargs):
+        ampls = torch.empty(num_tasks).uniform_(*ampl_range)
         freqs = torch.empty(num_tasks).uniform_(*freq_range)
         phases = torch.empty(num_tasks).uniform_(*phase_range)
-        return {"freqs": freqs, "phases": phases}
+        return {"ampls": ampls, "freqs": freqs, "phases": phases}
+
+    @staticmethod
+    def get_metric():
+        return squared_error
+
+    @staticmethod
+    def get_training_metric():
+        return mean_squared_error
+
+
+class L1Distance(Task):
+    def __init__(self, n_dims, batch_size, pool_dict=None, seeds=None, scale=1):
+        """scale: a constant by which to scale the distances."""
+        super(L1Distance, self).__init__(n_dims, batch_size, pool_dict, seeds)
+        self.scale = scale
+
+        if pool_dict is None and seeds is None:
+            # sample random w vectors
+            self.w = torch.randn(self.b_size, self.n_dims, 1)
+        elif seeds is not None:
+            self.w = torch.zeros(self.b_size, self.n_dims, 1)
+            generator = torch.Generator()
+            assert len(seeds) == self.b_size
+            for i, seed in enumerate(seeds):
+                generator.manual_seed(seed)
+                self.w[i] = torch.randn(self.n_dims, 1, generator=generator)
+        else:
+            # draw from existing pool
+            assert "w" in pool_dict
+            indices = torch.randperm(len(pool_dict["w"]))[:batch_size]
+            self.w = pool_dict["w"][indices]
+
+    def evaluate(self, xs):
+        """
+        xs: Tensor of shape [batch_size, num_points, n_dims]
+        returns: Tensor of shape [batch_size, num_points] where
+                 output[b, i] = scale * sum_j (w[b,j] - xs[b,i,j])**2
+        """
+        # bring w to same device and shape
+        w = self.w.to(xs.device).squeeze(-1)           # [B, n_dims]
+        w = w.unsqueeze(1)                              # [B, 1, n_dims]
+        diff = xs - w                                   # [B, P, n_dims]
+        l1_dist = diff.abs().sum(dim=2)  # [B, P]
+        return self.scale * l1_dist
+
+    @staticmethod
+    def generate_pool_dict(n_dims, num_tasks, **kwargs):
+        return {"w": torch.randn(num_tasks, n_dims, 1)}
+
+    @staticmethod
+    def get_metric():
+        return squared_error
+
+    @staticmethod
+    def get_training_metric():
+        return mean_squared_error
+
+
+class EuclideanDistance(Task):
+    def __init__(self, n_dims, batch_size, pool_dict=None, seeds=None, scale=1):
+        """scale: a constant by which to scale the distances."""
+        super(EuclideanDistance, self).__init__(n_dims, batch_size, pool_dict, seeds)
+        self.scale = scale
+
+        if pool_dict is None and seeds is None:
+            # sample random w vectors
+            self.w = torch.randn(self.b_size, self.n_dims, 1)
+        elif seeds is not None:
+            self.w = torch.zeros(self.b_size, self.n_dims, 1)
+            generator = torch.Generator()
+            assert len(seeds) == self.b_size
+            for i, seed in enumerate(seeds):
+                generator.manual_seed(seed)
+                self.w[i] = torch.randn(self.n_dims, 1, generator=generator)
+        else:
+            # draw from existing pool
+            assert "w" in pool_dict
+            indices = torch.randperm(len(pool_dict["w"]))[:batch_size]
+            self.w = pool_dict["w"][indices]
+    def evaluate(self, xs_b):
+        w_b = self.w.to(xs_b.device)
+        w_reshaped = w_b.squeeze(-1).unsqueeze(1)  # [B, 1, n_dims]
+        ys_b = self.scale * torch.norm(xs_b - w_reshaped, p=2, dim=2)  # [B, P]
+        return ys_b
+
+    @staticmethod
+    def generate_pool_dict(n_dims, num_tasks, **kwargs):
+        return {"w": torch.randn(num_tasks, n_dims, 1)}
+
+    @staticmethod
+    def get_metric():
+        return squared_error
+
+    @staticmethod
+    def get_training_metric():
+        return mean_squared_error
+
+
+class HighFrequency(Task):
+    def __init__(self, n_dims, batch_size, pool_dict=None, seeds=None, scale=1):
+        """
+        A task that projects inputs onto high-frequency alternating weights (+1/-1 pattern).
+        
+        Args:
+            n_dims: Dimensionality of the input.
+            batch_size: Number of weight vectors to sample.
+            pool_dict: Dictionary of pre-generated weights.
+            seeds: Random seeds for reproducibility.
+            scale: A constant by which to scale the weights.
+        """
+        super(HighFrequency, self).__init__(n_dims, batch_size, pool_dict, seeds)
+        self.scale = 10
+
+        if pool_dict is None and seeds is None:
+            self.w_b = self._generate_weights(self.b_size, self.n_dims)
+        elif seeds is not None:
+            self.w_b = self._generate_weights(self.b_size, self.n_dims)
+        else:
+            assert "w" in pool_dict
+            indices = torch.randperm(len(pool_dict["w"]))[:batch_size]
+            self.w_b = pool_dict["w"][indices]
+
+    def _generate_weights(self, batch_size, n_dims):
+        """Generate alternating +1/-1 weights."""
+        # Create batch_size copies of the alternating pattern
+        weights = torch.ones(batch_size, n_dims, 1)
+        weights[:, 1::2, :] = -1  # Set odd indices to -1
+        return weights * self.scale
+
+    def evaluate(self, xs_b):
+        w_b = self.w_b.to(xs_b.device)
+        ys_b = self.scale * (xs_b @ w_b)[:, :, 0]
+        return ys_b
+
+    @staticmethod
+    def generate_pool_dict(n_dims, num_tasks, **kwargs):
+        weights = torch.ones(num_tasks, n_dims, 1)
+        weights[:, 1::2, :] = -1  # Set odd indices to -1
+        return {"w": weights}
 
     @staticmethod
     def get_metric():
@@ -562,7 +719,7 @@ class LongTermDependency(Task):
 
 
 class ModuloClassification(Task):
-    def __init__(self, n_dims, batch_size, pool_dict=None, seeds=None, modulo=3, modulo_choices=[3, 5, 7, 9, 11]):
+    def __init__(self, n_dims, batch_size, pool_dict=None, seeds=None, modulo=3, modulo_choices=[3, 5, 7]):
         """
         Classify the sum of vector elements modulo a small integer (e.g. 3).
         Output is a class label in {0, ..., modulo-1}.
@@ -620,7 +777,7 @@ class ModuloClassification(Task):
         return incorrect  # 1 where incorrect, 0 where correct
 
     @staticmethod
-    def generate_pool_dict(n_dims, num_tasks, modulo_choices=[3,5,7,9,11], **kwargs):
+    def generate_pool_dict(n_dims, num_tasks, modulo_choices=[3,5,7], **kwargs):
         modulos = torch.tensor([
             modulo_choices[torch.randint(0, len(modulo_choices), (1,)).item()]
             for _ in range(num_tasks)
@@ -636,3 +793,35 @@ class ModuloClassification(Task):
     @staticmethod
     def get_training_metric():
         return mean_squared_error
+
+
+class VectorManipulation(Task):
+    def __init__(self, n_dims, batch_size, pool_dict=None, seeds=None):
+        """
+        A task where the output depends on a specific index of the input
+        that is randomly selected during initialization.
+        """
+        super(VectorManipulation, self).__init__(n_dims, batch_size, pool_dict, seeds)
+
+    def evaluate(self, xs_b):
+        #Divide xs_b into two equal size subvectors and get the intermediate vector sum.
+        #Then, obtain the product of all elements in the intermediate vector sum.
+        vec = xs_b[:,:,:xs_b.nonzero(as_tuple=True)[2][-1] + 1] #gets the actual input vector (ignoring zero padding for sampling)
+        left, right = vec.split(vec.shape[2] // 2, dim=2)
+        sum = left + right
+        out = torch.prod(sum, dim=2, keepdim=True)
+        out_padded = torch.nn.functional.pad(out, (0, xs_b.shape[2] - 1))
+        return out_padded
+
+    @staticmethod
+    def generate_pool_dict(n_dims, num_tasks, **kwargs):
+        return {"indices": torch.randint(0, n_dims, (num_tasks,))}
+
+    @staticmethod
+    def get_metric():
+        return squared_error
+
+    @staticmethod
+    def get_training_metric():
+        return mean_squared_error
+
