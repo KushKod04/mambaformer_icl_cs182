@@ -70,6 +70,7 @@ training_schema = {
         "filter",
         "unique_key_tokens_fixed_query",
         "unique_key_tokens_random_query",
+        "integer",
     ])),
     "batch_size": merge(tinteger, default(64)),
     "learning_rate": merge(tfloat, default(3e-4)),

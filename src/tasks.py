@@ -562,7 +562,7 @@ class LongTermDependency(Task):
 
 
 class ModuloClassification(Task):
-    def __init__(self, n_dims, batch_size, pool_dict=None, seeds=None, modulo=3, modulo_choices=[3, 5, 7]):
+    def __init__(self, n_dims, batch_size, pool_dict=None, seeds=None, modulo=3, modulo_choices=[3, 5, 7, 9, 11]):
         """
         Classify the sum of vector elements modulo a small integer (e.g. 3).
         Output is a class label in {0, ..., modulo-1}.
@@ -620,7 +620,7 @@ class ModuloClassification(Task):
         return incorrect  # 1 where incorrect, 0 where correct
 
     @staticmethod
-    def generate_pool_dict(n_dims, num_tasks, modulo_choices=[3,5,7], **kwargs):
+    def generate_pool_dict(n_dims, num_tasks, modulo_choices=[3,5,7,9,11], **kwargs):
         modulos = torch.tensor([
             modulo_choices[torch.randint(0, len(modulo_choices), (1,)).item()]
             for _ in range(num_tasks)

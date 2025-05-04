@@ -9,7 +9,7 @@ model:
 training:
     task: modulo_classification
     task_kwargs: {}
-    data: gaussian
+    data: integer
     data_sampler_kwargs: {}
     batch_size: 64
     learning_rate: 0.0001
@@ -18,9 +18,9 @@ training:
     train_steps: 100001
     curriculum:
         dims:
-            start: 20
-            end: 100  # originally 20
-            inc: 5  # originally 1
+            start: 100  # originally 20
+            end: 500  # originally 20
+            inc: 50  # originally 1
             interval: 2000
         points:
             start: 11

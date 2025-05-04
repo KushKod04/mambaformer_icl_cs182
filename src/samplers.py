@@ -20,6 +20,7 @@ def get_data_sampler(data_name, n_dims, **kwargs):
         "unique_key_tokens_fixed_query": FixedQueryTokenSampler,
         "unique_key_tokens_random_query": RandomQueryTokenSampler,
         "filter": FilteringGaussianSampler,
+        "integer": IntegerSampler,
     }
     if data_name in names_to_classes:
         sampler_cls = names_to_classes[data_name]
@@ -84,6 +85,32 @@ class GaussianSampler(DataSampler):
             xs_b = xs_b @ self.scale.cuda()
         if self.bias is not None:
             xs_b += self.bias
+        if n_dims_truncated is not None:
+            xs_b[:, :, n_dims_truncated:] = 0
+        return xs_b
+
+
+class IntegerSampler(DataSampler):
+    def __init__(self, n_dims, min_val=1, max_val=101):
+        """
+            Integer sampler that returns positive integers in [min_val, max_val)
+        """
+        super().__init__(n_dims)
+        assert min_val >= 1, "Minimum value must be >= 1"
+        assert max_val > min_val, "Maximum must be greater than minimum"
+        self.min_val = min_val
+        self.max_val = max_val
+
+    def sample_xs(self, n_points, b_size, n_dims_truncated=None, seeds=None):
+        if seeds is None:
+            xs_b = torch.randint(low=self.min_val, high=self.max_val, size=(b_size, n_points, self.n_dims), device="cuda")
+        else:
+            xs_b = torch.zeros(b_size, n_points, self.n_dims, dtype=torch.long, device="cuda")
+            generator = torch.Generator()
+            assert len(seeds) == b_size
+            for i, seed in enumerate(seeds):
+                generator.manual_seed(seed)
+                xs_b[i] = torch.randint(low=self.min_val, high=self.max_val, size=(n_points, self.n_dims), generator=generator, device="cuda")
         if n_dims_truncated is not None:
             xs_b[:, :, n_dims_truncated:] = 0
         return xs_b
