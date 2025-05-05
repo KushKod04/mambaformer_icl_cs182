@@ -256,7 +256,6 @@ class SinusoidalRegression(Task):
     def get_training_metric():
         return mean_squared_error
 
-
 class L1Distance(Task):
     def __init__(self, n_dims, batch_size, pool_dict=None, seeds=None, scale=1):
         """scale: a constant by which to scale the distances."""
@@ -303,7 +302,7 @@ class L1Distance(Task):
     @staticmethod
     def get_training_metric():
         return mean_squared_error
-
+    
 
 class EuclideanDistance(Task):
     def __init__(self, n_dims, batch_size, pool_dict=None, seeds=None, scale=1):
@@ -368,14 +367,14 @@ class HighFrequency(Task):
             assert "w" in pool_dict
             indices = torch.randperm(len(pool_dict["w"]))[:batch_size]
             self.w_b = pool_dict["w"][indices]
-
+    
     def _generate_weights(self, batch_size, n_dims):
         """Generate alternating +1/-1 weights."""
         # Create batch_size copies of the alternating pattern
         weights = torch.ones(batch_size, n_dims, 1)
         weights[:, 1::2, :] = -1  # Set odd indices to -1
         return weights * self.scale
-
+        
     def evaluate(self, xs_b):
         w_b = self.w_b.to(xs_b.device)
         ys_b = self.scale * (xs_b @ w_b)[:, :, 0]
@@ -386,7 +385,7 @@ class HighFrequency(Task):
         weights = torch.ones(num_tasks, n_dims, 1)
         weights[:, 1::2, :] = -1  # Set odd indices to -1
         return {"w": weights}
-
+        
     @staticmethod
     def get_metric():
         return squared_error
@@ -784,7 +783,6 @@ class ModuloClassification(Task):
         ], device='cuda')
 
         return {"modulos": modulos}
-    
 
     @staticmethod
     def get_metric():
@@ -803,6 +801,7 @@ class VectorManipulation(Task):
         """
         super(VectorManipulation, self).__init__(n_dims, batch_size, pool_dict, seeds)
 
+    
     def evaluate(self, xs_b):
         #Divide xs_b into two equal size subvectors and get the intermediate vector sum.
         #Then, obtain the product of all elements in the intermediate vector sum.
