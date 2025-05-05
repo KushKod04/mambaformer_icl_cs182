@@ -1,6 +1,9 @@
-# MambaFormer In-context Learning
+# In-Context Mamba Learning
 
 **NOTE: Everything in this README was already given to us in the original repo. To see our trained model checkpoints, open the `./models` folder.**
+
+
+# MambaFormer In-context Learning
 
 MambaFormer in-context learning experiments and implementation from https://arxiv.org/abs/2402.04248
 
