@@ -4,6 +4,7 @@
 from eval import get_model_from_run, eval_model, build_evals, compute_evals
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import os
 import seaborn as sns
 from tensorboard.backend.event_processing import event_accumulator
@@ -20,26 +21,48 @@ MODEL_PATHS = {
         'transformer': '../models/sinusoidal_regression/SR_tf_embd512_layer8_lr1e-4_2025-04-21-22:39:51',
         'mamba': '../models/sinusoidal_regression/SR_mamba_embd512_layer8_lr1e-4_2025-04-21-22:35:19',
     },
+    'modulo_classification': {
+        # 'transformer': '../models/modulo_classification/MC_gpt2_embd512_layer8_lr1e-4_dims-100-500_2025-05-04-20:13:23',  # 100 <= dims <= 500
+        # 'mamba': '../models/modulo_classification/MC_mamba_embd512_layer8_lr1e-4_dims-100-500_2025-05-04-20:11:13',  # 100 <= dims <= 500
+        'transformer': '../models/modulo_classification/MC_gpt2_embd512_layer8_lr1e-4_dims-20-80_2025-05-04-22:13:22',  # 20 <= dims <= 80
+        'mamba': '../models/modulo_classification/MC_mamba_embd512_layer8_lr1e-4_dims-20-80_2025-05-04-22:11:23',  # 20 <= dims <= 80
+    },
+    'euclidean_distance': {
+        'transformer': '../models/euclidean_distance/ED_tf_embd128_layer2_lr1e-4_2025-05-04-19:27:40',
+        'mamba': '../models/euclidean_distance/ED_mamba_embd128_layer4_lr1e-4_2025-05-04-19:36:44',
+    },
+    'l1_distance': {
+        'transformer': '../models/l1_distance/L1_tf_embd128_layer2_lr1e-4_2025-05-04-19:44:25',
+        'mamba': '../models/l1_distance/L1_mamba_embd128_layer4_lr1e-4_2025-05-04-19:49:07',
+    },
+    'high_frequency': {
+        'transformer': '../models/high_frequency/HF_mamba_embd128_layer4_lr1e-4_2025-05-04-23:05:09',
+        'mamba': '../models/high_frequency/HF_tf_embd128_layer2_lr1e-4_2025-05-04-22:37:43',
+    },
+    'vector_manipulation': {
+        'transformer': '../models/vector_manipulation/VM_gpt2_embd512_layer8_lr1e-4_2025-05-04-23:37:47',
+        'mamba': '../models/vector_manipulation/VM_mamba_embd512_layer8_lr1e-4_2025-05-04-23:05:42',
+    },
 }
 
 
-def load_models():
-    ltd_gpt_model, ltd_gpt_conf = get_model_from_run(MODEL_PATHS['long_term_dependency']['transformer'], step=100000)
-    ltd_mamba_model, ltd_mamba_conf = get_model_from_run(MODEL_PATHS['long_term_dependency']['mamba'], step=100000)
-    sr_gpt_model, sr_gpt_conf = get_model_from_run(MODEL_PATHS['sinusoidal_regression']['transformer'], step=100000)
-    sr_mamba_model, sr_mamba_conf = get_model_from_run(MODEL_PATHS['sinusoidal_regression']['mamba'], step=100000)
+# def load_models():
+#     ltd_gpt_model, ltd_gpt_conf = get_model_from_run(MODEL_PATHS['long_term_dependency']['transformer'], step=100000)
+#     ltd_mamba_model, ltd_mamba_conf = get_model_from_run(MODEL_PATHS['long_term_dependency']['mamba'], step=100000)
+#     sr_gpt_model, sr_gpt_conf = get_model_from_run(MODEL_PATHS['sinusoidal_regression']['transformer'], step=100000)
+#     sr_mamba_model, sr_mamba_conf = get_model_from_run(MODEL_PATHS['sinusoidal_regression']['mamba'], step=100000)
 
-    ltd_gpt_model = ltd_gpt_model.cuda().eval()
-    ltd_mamba_model = ltd_mamba_model.cuda().eval()
-    sr_gpt_model = sr_gpt_model.cuda().eval()
-    sr_mamba_model = sr_mamba_model.cuda().eval()
+#     ltd_gpt_model = ltd_gpt_model.cuda().eval()
+#     ltd_mamba_model = ltd_mamba_model.cuda().eval()
+#     sr_gpt_model = sr_gpt_model.cuda().eval()
+#     sr_mamba_model = sr_mamba_model.cuda().eval()
 
-    return {
-        'ltd_gpt': (ltd_gpt_model, ltd_gpt_conf),
-        'ltd_mamba': (ltd_mamba_model, ltd_mamba_conf),
-        'sr_gpt': (sr_gpt_model, sr_gpt_conf),
-        'sr_mamba': (sr_mamba_model, sr_mamba_conf),
-    }
+#     return {
+#         'ltd_gpt': (ltd_gpt_model, ltd_gpt_conf),
+#         'ltd_mamba': (ltd_mamba_model, ltd_mamba_conf),
+#         'sr_gpt': (sr_gpt_model, sr_gpt_conf),
+#         'sr_mamba': (sr_mamba_model, sr_mamba_conf),
+#     }
 
 
 # shape is either (2*n_points+1,) or (points.end,)
@@ -179,7 +202,7 @@ def eval_increasing_num_eval_examples(task_name: str, min_examples: int=64, max_
     plt.close()
 
 
-# this code DOES NOT work (matrix multiplication dimenesion mismatch)
+# this code DOES NOT work (matrix multiplication dimension mismatch)
 def eval_increasing_n_dims(task_name: str, min_dims: int=1, max_dims: int=20, step: int=1):
     """
         Evaluate the 2 models on increasing n_dims.
@@ -239,6 +262,7 @@ def eval_increasing_n_dims(task_name: str, min_dims: int=1, max_dims: int=20, st
     plt.close()
 
 
+# this code is IRRELEVANT
 def loss_spread(task_name: str):
     save_dir = 'eval_results'
     os.makedirs(save_dir, exist_ok=True)
@@ -278,7 +302,7 @@ def loss_spread(task_name: str):
     plt.close()
 
 
-def plot_loss_distribution(task_name):
+def plot_loss_distribution(task_name: str, log_kde: bool = False):
     save_dir = 'eval_results'
     os.makedirs(save_dir, exist_ok=True)
     results = {}
@@ -305,34 +329,38 @@ def plot_loss_distribution(task_name):
         flat_losses = np.array(metrics["mean"]).flatten()
         flat_losses = flat_losses[flat_losses > 1e-8]  # avoid log(0)
         results[model_type] = flat_losses
-        # clipped = np.clip(metrics["mean"], 0, np.percentile(metrics["mean"], 99))
-        # results[model_type] = clipped
+        if not log_kde:
+            clipped = np.clip(metrics["mean"], 0, np.percentile(metrics["mean"], 99))  # uncomment for smoothed loss (clipped)
+            results[model_type] = clipped
 
     plt.figure(figsize=(8, 6))
     for model_type, losses in results.items():
         sns.kdeplot(losses, label=model_type.upper(), fill=True, alpha=0.5)
 
     # smoothed loss distribution
-    # plt.title(f"Smoothed Loss Distribution for {task_name.replace('_', ' ').title()}", fontsize=18)
-    # plt.xlabel("Per-Point Error (clipped @ 99th percentile)", fontsize=14)
-    # plt.ylabel("Density", fontsize=14)
-    # plt.legend(fontsize=14)
-    # plt.tight_layout()
-    # plot_path = os.path.join(save_dir, f"{task_name}_loss_kde.png")
-    # plt.savefig(plot_path)
-    # plt.close()
+    if not log_kde:
+        plt.title(f"Smoothed Loss Distribution for {task_name.replace('_', ' ').title()}", fontsize=18)
+        plt.xlabel("Per-Point Error (clipped @ 99th percentile)", fontsize=14)
+        plt.ylabel("Density", fontsize=14)
+        plt.legend(fontsize=14)
+        plt.tight_layout()
+        save_path = os.path.join(save_dir, f"{task_name}_loss_kde.png")
+        plt.savefig(save_path)
+        plt.close()
+        print(f"Saved plot to {save_path}")
 
     # log-scale loss distribution
-    plt.title(f"Log-Scale Loss Distribution for {task_name.replace('_', ' ').title()}", fontsize=18)
-    plt.xlabel("Per-Point Error (log scale)", fontsize=14)
-    plt.ylabel("Density", fontsize=14)
-    plt.xscale("log")
-    plt.legend(fontsize=14)
-    plt.tight_layout()
-    save_path = os.path.join(save_dir, f"{task_name}_log_kde_loss.png")
-    plt.savefig(save_path)
-    plt.close()
-    print(f"Saved plot to {save_path}")
+    else:
+        plt.title(f"Log-Scale Loss Distribution for {task_name.replace('_', ' ').title()}", fontsize=18)
+        plt.xlabel("Per-Point Error (log scale)", fontsize=14)
+        plt.ylabel("Density", fontsize=14)
+        plt.xscale("log")
+        plt.legend(fontsize=14)
+        plt.tight_layout()
+        save_path = os.path.join(save_dir, f"{task_name}_log_kde_loss.png")
+        plt.savefig(save_path)
+        plt.close()
+        print(f"Saved plot to {save_path}")
 
 
 def compare_prompting_strategies(task_name: str):
@@ -477,8 +505,12 @@ def plot_training_loss_from_tensorboard(task_name: str, tag: str="overall_loss/t
             continue
 
         events = ea.Scalars(tag)
-        steps = [event.step for event in events]
-        values = [event.value for event in events]
+
+        # Downsample to every `step_stride` (e.g., 1000)
+        filtered_events = [event for event in events if event.step % 1000 == 0 and event.value < 5]
+
+        steps = [event.step for event in filtered_events]
+        values = [event.value for event in filtered_events]
         plt.plot(steps, values, label=model_type.upper())
     
     plt.title(f"Training Loss for {task_name.replace('_', ' ').title()}", fontsize=18)
@@ -493,88 +525,158 @@ def plot_training_loss_from_tensorboard(task_name: str, tag: str="overall_loss/t
     plt.close()
 
 
+def plot_training_loss_from_wandb(task_name: str, tag: str="overall_loss/train"):
+    """
+    Plots the training loss curve from Weights & Biases logs.
+
+    Parameters:
+        task_name (str): Type of task being evaluated.
+        tag (str): The tag name used during training for logging the loss (default assumes "overall_loss/train").
+    """
+    save_dir = 'eval_results'
+    os.makedirs(save_dir, exist_ok=True)
+    plt.figure(figsize=(10, 5))
+
+    for model_type, model_path in MODEL_PATHS[task_name].items():
+        log_dir = os.path.join(model_path, "wandb")
+        losses, steps = [], []
+
+        for file in os.listdir(log_dir):
+            if file.startswith("events.out.tfevents"):
+                ea = event_accumulator.EventAccumulator(os.path.join(log_dir, file))
+                ea.Reload()
+
+                available_tags = ea.Tags().get('scalars', [])
+                if tag not in available_tags:
+                    print(f"Tag '{tag}' not found for {model_type} in {log_dir}. Available tags are {available_tags}")
+                    continue
+
+                if tag in ea.Tags()['scalars']:
+                    events = ea.Scalars(tag)
+                    for event in events:
+                        steps.append(event.step)
+                        losses.append(event.value)
+
+        plt.plot(steps, losses, label=model_type.upper())
+    
+    plt.title(f"Training Loss for {task_name.replace('_', ' ').title()}", fontsize=18)
+    plt.xlabel("Training Step", fontsize=14)
+    plt.ylabel("Loss", fontsize=14)
+    plt.ylim(0, max(losses) * 1.05)
+    plt.grid(True)
+    plt.legend(fontsize=14)
+    plt.tight_layout()
+    plot_path = os.path.join(save_dir, f"{task_name}_training_loss.png")
+    plt.savefig(plot_path)
+    print(f"Saved training loss plot to: {plot_path}")
+    plt.close()
+
+
+def plot_training_loss_from_metrics(task_name: str, step: int=1, log: bool=False):
+    """
+    Plots the training loss curve from training_metrics.csv
+
+    Parameters:
+        task_name (str): Type of task being evaluated.
+    """
+    save_dir = 'eval_results'
+    os.makedirs(save_dir, exist_ok=True)
+    plt.figure(figsize=(10, 5))
+
+    y_upper = y_min = 0
+
+    for model_type, model_path in MODEL_PATHS[task_name].items():
+        metrics_dir = os.path.join(model_path, "training_metrics.csv")
+        df = pd.read_csv(metrics_dir)
+        steps, loss = df["step"][::step], df["overall_loss/train"][::step]
+        if log:
+            loss = np.log(loss + 1e-8)
+
+        plt.plot(steps, loss, label=model_type.upper())
+        y_upper = max(y_upper, max(loss))
+        y_min = min(y_min, min(loss))
+    
+    plt.title(f"Training {'Log ' if log else ''}Loss for {task_name.replace('_', ' ').title()}", fontsize=18)
+    plt.ylabel("Log Loss" if log else "Loss", fontsize=14)
+    # plt.title(f"Training Loss for {task_name.replace('_', ' ').title()}", fontsize=18)
+    # plt.ylabel("Loss", fontsize=14)
+    plt.ylim(y_min, y_upper * 1.05)
+    plt.xlabel("Training Step", fontsize=14)
+    plt.grid(True)
+    plt.legend(fontsize=14)
+    plt.tight_layout()
+
+    suffix = "_log" if log else ""
+    plot_path = os.path.join(save_dir, f"{task_name}_training_loss_metrics{suffix}.png")
+    plt.savefig(plot_path)
+    print(f"Saved training loss plot to: {plot_path}")
+    plt.close()
+
 
 if __name__ == '__main__':
-    eval_increasing_n_points('long_term_dependency', min_points=5, max_points=65, step=2)
-    eval_increasing_n_points('sinusoidal_regression', min_points=5, max_points=65, step=2)
+    # TODO: RUN THIS ONCE FOR EVERY MODEL
+    # eval_increasing_n_points('long_term_dependency', min_points=5, max_points=65, step=2)
+    # eval_increasing_n_points('sinusoidal_regression', min_points=5, max_points=65, step=2)
+    # eval_increasing_n_points('modulo_classification', min_points=5, max_points=65, step=2)
+    # eval_increasing_n_points('euclidean_distance', min_points=5, max_points=65, step=2)
+    # eval_increasing_n_points('l1_distance', min_points=5, max_points=65, step=2)
+    eval_increasing_n_points('vector_manipulation', min_points=5, max_points=65, step=2)
+    # eval_increasing_n_points('high_frequency', min_points=5, max_points=65, step=2)
 
+    # TODO: RUN THIS ONCE FOR EVERY MODEL
     # eval_increasing_num_eval_examples('long_term_dependency', min_examples=64, max_examples=2048, step=64)
     # eval_increasing_num_eval_examples('sinusoidal_regression', min_examples=64, max_examples=2048, step=64)
+    # eval_increasing_num_eval_examples('modulo_classification', min_examples=64, max_examples=2048, step=64)
+    # eval_increasing_num_eval_examples('euclidean_distance', min_examples=64, max_examples=2048, step=64)
+    # eval_increasing_num_eval_examples('l1_distance', min_examples=64, max_examples=2048, step=64)
+    eval_increasing_num_eval_examples('vector_manipulation', min_examples=64, max_examples=2048, step=64)
+    # eval_increasing_num_eval_examples('high_frequency', min_examples=64, max_examples=2048, step=64)
 
-    # loss_spread('long_term_dependency')
-    # loss_spread('sinusoidal_regression')
+    # TODO: RUN THIS ONCE FOR EVERY MODEL
     # plot_loss_distribution('long_term_dependency')
     # plot_loss_distribution('sinusoidal_regression')
+    # plot_loss_distribution('modulo_classification')
+    # plot_loss_distribution('modulo_classification', log_kde=True)
+    # plot_loss_distribution('euclidean_distance')
+    # plot_loss_distribution('euclidean_distance', log_kde=True)  # get the full log-loss KDE plot
+    # plot_loss_distribution('l1_distance')
+    # plot_loss_distribution('l1_distance', log_kde=True)  # get the full log-loss KDE plot
+    plot_loss_distribution('vector_manipulation')
+    plot_loss_distribution('vector_manipulation', log_kde=True)  # get the full log-loss KDE plot
+    # plot_loss_distribution('high_frequency')
+    # plot_loss_distribution('high_frequency', log_kde=True)  # get the full log-loss KDE plot
 
-    # compare_prompting_strategies('long_term_dependency')
-    # compare_prompting_strategies('sinusoidal_regression')
+    # TODO: RUN THIS ONCE FOR EVERY MODEL
+    # plot_training_loss_from_tensorboard('long_term_dependency')
+    # plot_training_loss_from_tensorboard('sinusoidal_regression')
+    # plot_training_loss_from_tensorboard('modulo_classification')
+    # plot_training_loss_from_tensorboard('euclidean_distance')
+    # plot_training_loss_from_tensorboard('l1_distance')
+    # plot_training_loss_from_tensorboard('vector_manipulation')
+    # plot_training_loss_from_tensorboard('high_frequency')
 
+    # TODO: RUN THIS ONCE FOR EVERY MODEL
     # plot_per_point_error_comparison('long_term_dependency')
     # plot_per_point_error_comparison('sinusoidal_regression')
+    # plot_per_point_error_comparison('modulo_classification')
+    # plot_per_point_error_comparison('euclidean_distance')
+    # plot_per_point_error_comparison('l1_distance')
+    plot_per_point_error_comparison('vector_manipulation')
+    # plot_per_point_error_comparison('high_frequency')
 
-    plot_training_loss_from_tensorboard('long_term_dependency')
-    plot_training_loss_from_tensorboard('sinusoidal_regression')
+    # TODO: if tensorboard doesn't work, plot the training loss from metrics
+    # plot_training_loss_from_metrics('modulo_classification')
+    plot_training_loss_from_metrics('vector_manipulation', log=True)
+    # plot_training_loss_from_metrics('high_frequency')
 
+    pass
 
-    print()
+    # ############## IGNORE EVERYTHING BELOW THIS LINE ##############
+    # plot_training_loss_from_wandb('modulo_classification')  # only run after model_100000.pt files exist
 
+    # loss_spread('long_term_dependency')  # useless
+    # loss_spread('sinusoidal_regression')  # useless
+    # loss_spread('modulo_classification')  # useless
+    # compare_prompting_strategies('long_term_dependency')  #useless
+    # compare_prompting_strategies('sinusoidal_regression')  #useless
 
-"""
-`conf` for LongTermDependency GPT-2 model looks like ::
-
-{
-    'config': 'conf/long_term_dependency.yaml', 
-    'inherit': ['/home/ubuntu/cs182/mambaformer-icl/src/conf/wandb.yaml'], 
-    'model': {
-        'family': 'gpt2', 
-        'interleave': True, 
-        'mixed_attn': None, 
-        'n_dims': 20, 
-        'n_embd': 512, 
-        'n_head': 8, 
-        'n_layer': 8, 
-        'n_positions': 256, 
-        'vocab_size': -1
-    }, 
-    'out_dir': '../models/long_term_dependency/LTD_gpt2_embd512_layer8_lr1e-4_2025-04-22-00:55:01', 
-    'test_run': False, 
-    'training': {
-        'batch_size': 64, 
-        'curriculum': {
-            'dims': {
-                'end': 20, 
-                'inc': 1, 
-                'interval': 2000, 
-                'start': 20
-            }, 
-            'points': {
-                'end': 64, 
-                'inc': 2, 
-                'interval': 2000, 
-                'start': 64
-            }
-        }, 
-        'data': 'gaussian_for_retrieval', 
-        'data_sampler_kwargs': {}, 
-        'device_batch_size': None, 
-        'do_parallel': None, 
-        'gradient_clip': 10.0, 
-        'keep_every_steps': 100000, 
-        'learning_rate': 0.0001, 
-        'num_tasks': None, 
-        'num_training_examples': None, 
-        'resume_id': None, 
-        'save_every_steps': 5000, 
-        'task': 'long_term_dependency', 
-        'task_kwargs': {}, 
-        'train_steps': 100001
-    }, 
-    'wandb': {
-        'entity': 'kkodnad-bair-malik-lab', 
-        'log_every_steps': 1000, 
-        'name': 'LTD_gpt2_embd512_layer8_lr1e-4', 
-        'notes': '', 
-        'project': 'cs182_project'
-    }
-}
-"""
