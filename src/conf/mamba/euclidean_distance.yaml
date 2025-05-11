@@ -29,4 +29,4 @@ training:
             interval: 2000
 out_dir: ../models/euclidean_distance
 wandb:
-    name: "ED_mamba_embd128_layer4_lr1e-4"
+    name: "ED_mamba_embd512_layer8_lr1e-4"
