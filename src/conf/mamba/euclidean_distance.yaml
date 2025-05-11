@@ -2,8 +2,8 @@ inherit:
     - ../wandb.yaml
 model:
     family: mamba
-    n_embd: 128
-    n_layer: 4
+    n_embd: 512  #128
+    n_layer: 8  #4
     n_dims: 20
     interleave: True
 training:

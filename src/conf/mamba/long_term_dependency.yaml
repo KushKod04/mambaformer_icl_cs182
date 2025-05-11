@@ -9,7 +9,7 @@ model:
 training:
     task: long_term_dependency
     task_kwargs: {}
-    data: gaussian_for_retrieval
+    data: gaussian
     data_sampler_kwargs: {}
     batch_size: 64
     learning_rate: 0.0001

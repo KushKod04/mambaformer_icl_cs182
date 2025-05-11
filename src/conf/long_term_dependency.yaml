@@ -4,12 +4,13 @@ model:
     family: gpt2
     n_embd: 512
     n_layer: 8
+    n_head: 8
     n_dims: 20
     interleave: True
 training:
     task: long_term_dependency
     task_kwargs: {}
-    data: gaussian_for_retrieval
+    data: gaussian
     data_sampler_kwargs: {}
     batch_size: 64
     learning_rate: 0.0001
