@@ -1,0 +1,48 @@
+config: conf/vector_manipulation.yaml
+inherit:
+- /home/ubuntu/cs182/mambaformer-icl/src/conf/wandb.yaml
+model:
+  family: gpt2
+  interleave: true
+  mixed_attn: null
+  n_dims: 10
+  n_embd: 512
+  n_head: 8
+  n_layer: 8
+  n_positions: 101
+  vocab_size: -1
+out_dir: ../models/vector_manipulation/VM_gpt2_embd512_layer8_lr1e-4_2025-05-04-23:37:47
+test_run: false
+training:
+  batch_size: 64
+  curriculum:
+    dims:
+      end: 10
+      inc: 2
+      interval: 2000
+      start: 2
+    points:
+      end: 41
+      inc: 2
+      interval: 2000
+      start: 11
+  data: uniform
+  data_sampler_kwargs: {}
+  device_batch_size: null
+  do_parallel: null
+  gradient_clip: 10.0
+  keep_every_steps: 100000
+  learning_rate: 0.0001
+  num_tasks: null
+  num_training_examples: null
+  resume_id: null
+  save_every_steps: 5000
+  task: vector_manipulation
+  task_kwargs: {}
+  train_steps: 100001
+wandb:
+  entity: kkodnad-bair-malik-lab
+  log_every_steps: 1000
+  name: VM_gpt2_embd512_layer8_lr1e-4
+  notes: ''
+  project: cs182_project
