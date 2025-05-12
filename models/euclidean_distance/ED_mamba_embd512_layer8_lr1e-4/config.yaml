@@ -1,0 +1,48 @@
+config: conf/mamba/euclidean_distance.yaml
+inherit:
+- /home/ubuntu/cs182/mambaformer-icl/src/conf/wandb.yaml
+model:
+  family: mamba
+  interleave: true
+  mixed_attn: null
+  n_dims: 20
+  n_embd: 512
+  n_head: 8
+  n_layer: 8
+  n_positions: 256
+  vocab_size: -1
+out_dir: ../models/euclidean_distance/ED_mamba_embd512_layer8_lr1e-4_2025-05-11-20:29:44
+test_run: false
+training:
+  batch_size: 64
+  curriculum:
+    dims:
+      end: 20
+      inc: 1
+      interval: 2000
+      start: 5
+    points:
+      end: 41
+      inc: 2
+      interval: 2000
+      start: 11
+  data: gaussian
+  data_sampler_kwargs: {}
+  device_batch_size: null
+  do_parallel: null
+  gradient_clip: 10.0
+  keep_every_steps: 5000
+  learning_rate: 0.0001
+  num_tasks: null
+  num_training_examples: null
+  resume_id: null
+  save_every_steps: 10000
+  task: euclidean_distance
+  task_kwargs: {}
+  train_steps: 100001
+wandb:
+  entity: kkodnad-bair-malik-lab
+  log_every_steps: 100
+  name: ED_mamba_embd512_layer8_lr1e-4
+  notes: ''
+  project: cs182_project
