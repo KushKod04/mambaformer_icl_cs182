@@ -75,7 +75,7 @@ def get_task_sampler(
         "sinusoidal_regression": SinusoidalRegression,
         "long_term_dependency": LongTermDependency,
         "modulo_classification": ModuloClassification,
-        "euclidean_distance":EuclideanDistance,
+        "euclidean_distance": EuclideanDistance,
         "l1_distance": L1Distance,
         "vector_manipulation": VectorManipulation,
         "high_frequency": HighFrequency,
